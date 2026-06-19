@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>আর্কাইভ · Local OCR &amp; RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Space+Mono:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#e9e4d8;
+    --paper:#15140f;
+    --paper-raised:#1c1b14;
+    --paper-line:#332f22;
+    --accent:#c9a24b;
+    --accent-dim:#7a5f2c;
+    --signal:#7fae8e;
+    --danger:#b8624f;
+    --muted:#8a8470;
+    --radius:2px;
+    --serif: "Source Serif 4", Georgia, serif;
+    --bangla: "Tiro Bangla", "Noto Sans Bengali", serif;
+    --bangla-ui: "Noto Sans Bengali", sans-serif;
+    --mono: "Space Mono", ui-monospace, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, #21200090 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--bangla-ui);
+    min-height:100vh;
+    line-height:1.5;
+  }
+  body.lang-en{ font-family: "Source Serif 4", Georgia, serif; }
+  body.lang-en .bangla-ui-text{ font-family: var(--serif); }
+
+  ::selection{ background:var(--accent); color:#15140f; }
+  a{ color:var(--accent); }
+
+  /* show/hide based on active language */
+  [data-bn], [data-en]{ }
+  body.lang-bn [data-en-only]{ display:none !important; }
+  body.lang-en [data-bn-only]{ display:none !important; }
+
+  /* ---------- layout shell ---------- */
+  .frame{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 28px 80px;
+  }
+
+  header.masthead{
+    border-bottom:1px solid var(--paper-line);
+    padding:28px 0 18px;
+    margin-bottom:30px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .masthead-title{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+  }
+  .masthead-title .bn{
+    font-family:var(--bangla);
+    font-size:34px;
+    font-weight:700;
+    letter-spacing:0.5px;
+  }
+  body.lang-en .masthead-title .bn{
+    font-family: var(--serif);
+    font-size:30px;
+  }
+  .masthead-title .en{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--muted);
+    border-left:1px solid var(--paper-line);
+    padding-left:14px;
+  }
+
+  .header-actions{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .lang-toggle{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:1px;
+    display:flex;
+    align-items:center;
+    border:1px solid var(--paper-line);
+    border-radius:999px;
+    overflow:hidden;
+    cursor:pointer;
+    background:var(--paper-raised);
+    width:auto;
+    margin:0;
+    padding:0;
+  }
+  .lang-toggle span{
+    padding:8px 14px;
+    transition:background .2s ease, color .2s ease;
+    color:var(--muted);
+  }
+  .lang-toggle span.active{
+    background:var(--accent);
+    color:#19170d;
+    font-weight:700;
+  }
+  .lang-toggle:hover{ box-shadow:none; border-color:var(--accent); }
+
+  .status-pill{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 12px;
+    border:1px solid var(--paper-line);
+    border-radius:999px;
+    color:var(--muted);
+  }
+  .status-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--muted);
+    transition:background .3s ease, box-shadow .3s ease;
+  }
+  .status-dot.online{ background:var(--signal); box-shadow:0 0 8px var(--signal); }
+  .status-dot.offline{ background:var(--danger); box-shadow:0 0 8px var(--danger); }
+
+  /* ---------- config strip ---------- */
+  .config-strip{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:36px;
+    flex-wrap:wrap;
+  }
+  .config-strip input{
+    background:var(--paper-raised);
+    border:1px solid var(--paper-line);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:var(--radius);
+    width:220px;
+  }
+  .config-strip input:focus{ outline:1px solid var(--accent); }
+
+  /* ---------- grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:24px;
+  }
+  @media(min-width:920px){
+    .grid{ grid-template-columns: 380px 1fr; align-items:start; }
+  }
+
+  .panel{
+    background:var(--paper-raised);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    padding:24px;
+  }
+  .panel + .panel{ margin-top:24px; }
+
+  .panel-eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .panel-eyebrow::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--paper-line);
+  }
+
+  .panel h2{
+    font-family:var(--bangla);
+    font-size:20px;
+    font-weight:700;
+    margin:0 0 4px;
+  }
+  body.lang-en .panel h2{ font-family: var(--serif); }
+  .panel .sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 18px;
+  }
+
+  /* ---------- dropzone ---------- */
+  .dropzone{
+    border:1px dashed var(--paper-line);
+    border-radius:var(--radius);
+    padding:28px 16px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+    position:relative;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent);
+    background:#221f15;
+  }
+  .dropzone input{ display:none; }
+  .dropzone .glyph{
+    font-family:var(--bangla);
+    font-size:28px;
+    color:var(--accent);
+    display:block;
+    margin-bottom:8px;
+  }
+  body.lang-en .dropzone .glyph{ font-family: var(--mono); font-size:20px; letter-spacing:2px; }
+  .dropzone .hint{
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .dropzone .filename{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink);
+    margin-top:10px;
+    word-break:break-all;
+  }
+
+  button{
+    font-family:var(--bangla-ui);
+    font-weight:600;
+    font-size:14px;
+    border:1px solid var(--accent-dim);
+    background:var(--accent);
+    color:#19170d;
+    padding:11px 18px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    width:100%;
+    margin-top:16px;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    letter-spacing:0.2px;
+  }
+  body.lang-en button{ font-family: var(--serif); }
+  button:hover:not(:disabled){ box-shadow:0 0 0 1px var(--accent), 0 6px 18px -8px var(--accent); }
+  button:active:not(:disabled){ transform:translateY(1px); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  button.ghost{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--paper-line);
+  }
+  button.ghost:hover:not(:disabled){ border-color:var(--accent); box-shadow:none; }
+
+  /* ---------- log console ---------- */
+  .console{
+    background:#0e0d09;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.7;
+    padding:14px 16px;
+    margin-top:16px;
+    max-height:170px;
+    overflow-y:auto;
+  }
+  .console .line{ white-space:pre-wrap; word-break:break-word; }
+  .console .line.ok{ color:var(--signal); }
+  .console .line.err{ color:var(--danger); }
+  .console .line.dim{ color:var(--muted); }
+  .console .line .ts{ color:var(--muted); margin-right:8px; }
+
+  /* ---------- filters ---------- */
+  .filter-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .filter-row.full{ grid-template-columns:1fr; }
+  label{
+    display:block;
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  select, input[type=text], input[type=date]{
+    width:100%;
+    background:var(--paper);
+    border:1px solid var(--paper-line);
+    color:var(--ink);
+    font-family:var(--bangla-ui);
+    font-size:13px;
+    padding:9px 10px;
+    border-radius:var(--radius);
+  }
+  body.lang-en select, body.lang-en input[type=text]{ font-family: var(--serif); }
+  select:focus, input:focus{ outline:1px solid var(--accent); border-color:var(--accent); }
+
+  .query-bar{
+    display:flex;
+    gap:10px;
+    margin-top:4px;
+  }
+  .query-bar input{
+    flex:1;
+    font-family:var(--bangla-ui);
+    font-size:15px;
+    padding:13px 14px;
+  }
+  body.lang-en .query-bar input{ font-family: var(--serif); }
+  .query-bar button{ width:auto; white-space:nowrap; margin-top:0; padding:0 22px; }
+
+  /* ---------- answer ---------- */
+  .answer-block{
+    margin-top:22px;
+    border-left:2px solid var(--accent);
+    padding:4px 0 4px 18px;
+    display:none;
+  }
+  .answer-block.show{ display:block; }
+  .answer-block .q{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:1px;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .answer-block .a{
+    font-family:var(--serif);
+    font-size:18px;
+    line-height:1.65;
+    white-space:pre-wrap;
+  }
+  .answer-block .a:lang(bn), .answer-block .a.bn-text{ font-family:var(--bangla); }
+
+  /* ---------- sources ---------- */
+  .sources{ margin-top:22px; }
+  .sources-title{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:10px;
+  }
+  .source-card{
+    background:var(--paper);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:10px;
+  }
+  .source-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .source-meta{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .source-meta span{
+    border:1px solid var(--paper-line);
+    padding:2px 7px;
+    border-radius:999px;
+  }
+  .score{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--accent);
+  }
+  .source-text{
+    font-size:13.5px;
+    color:#cfc9b8;
+    line-height:1.6;
+    max-height:90px;
+    overflow:hidden;
+    position:relative;
+  }
+  .source-card.expanded .source-text{ max-height:none; }
+  .expand-toggle{
+    background:none;
+    border:none;
+    color:var(--accent);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:0;
+    width:auto;
+    margin-top:8px;
+    cursor:pointer;
+  }
+
+  .empty-state{
+    color:var(--muted);
+    font-size:13.5px;
+    text-align:center;
+    padding:30px 10px;
+    border:1px dashed var(--paper-line);
+    border-radius:var(--radius);
+  }
+
+  .footnote{
+    margin-top:40px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    text-align:center;
+    letter-spacing:0.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body class="lang-bn">
+
+<div class="frame">
+
+  <header class="masthead">
+    <div class="masthead-title">
+      <span class="bn" data-bn="আর্কাইভ" data-en="Archive">আর্কাইভ</span>
+      <span class="en">Local OCR &amp; Dynamic RAG</span>
+    </div>
+    <div class="header-actions">
+      <div class="lang-toggle" id="langToggle">
+        <span data-lang-opt="bn" class="active">বাং</span>
+        <span data-lang-opt="en">EN</span>
+      </div>
+      <div class="status-pill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText" data-bn="চেক করা হচ্ছে…" data-en="checking…">চেক করা হচ্ছে…</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="config-strip">
+    <span data-bn="API base —" data-en="API base —">API base —</span>
+    <input type="text" id="apiBase" value="http://127.0.0.1:8000">
+    <button class="ghost" style="width:auto;margin:0;padding:6px 12px;" id="recheckBtn"
+      data-bn="পুনরায় চেক করো" data-en="Recheck">পুনরায় চেক করো</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- LEFT: Upload -->
+    <div>
+      <div class="panel">
+        <div class="panel-eyebrow"><span data-bn="০১ ইনজেশন" data-en="01 INGEST">০১ ইনজেশন</span></div>
+        <h2 data-bn="ডকুমেন্ট আপলোড" data-en="Upload a document">ডকুমেন্ট আপলোড</h2>
+        <p class="sub">
+          <span data-bn="POST /upload · বাংলা, ইংরেজি বা মিশ্র স্ক্যান/PDF"
+                data-en="POST /upload · Bangla, English, or mixed scan/PDF">POST /upload &nbsp;·&nbsp; বাংলা, ইংরেজি বা মিশ্র স্ক্যান/PDF</span>
+        </p>
+
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+          <span class="glyph" data-bn="পাঠ" data-en="DROP FILE">পাঠ</span>
+          <div class="hint">
+            <span data-bn="ফাইল টেনে আনো অথবা ক্লিক করে বেছে নাও"
+                  data-en="Drag a file here, or click to browse">ফাইল টেনে আনো অথবা ক্লিক করে বেছে নাও</span><br>
+            <span data-bn="(.pdf · .png · .jpg)" data-en="(.pdf · .png · .jpg)">(.pdf · .png · .jpg)</span>
+          </div>
+          <div class="filename" id="fileName"></div>
+        </div>
+
+        <button id="uploadBtn" disabled data-bn="আপলোড ও প্রসেস করো" data-en="Upload &amp; process">আপলোড ও প্রসেস করো</button>
+
+        <div class="console" id="uploadConsole">
+          <div class="line dim" data-bn="লগ এখানে দেখা যাবে…" data-en="Logs will appear here…">লগ এখানে দেখা যাবে…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Search -->
+    <div>
+      <div class="panel">
+        <div class="panel-eyebrow"><span data-bn="০২ অনুসন্ধান" data-en="02 SEARCH">০২ অনুসন্ধান</span></div>
+        <h2 data-bn="হাইব্রিড RAG সার্চ" data-en="Hybrid RAG search">হাইব্রিড RAG সার্চ</h2>
+        <p class="sub">
+          <span data-bn="POST /search · সিমান্টিক প্রশ্ন + ম্যানুয়াল মেটাডেটা ফিল্টার"
+                data-en="POST /search · semantic query + manual metadata filters">POST /search &nbsp;·&nbsp; সিমান্টিক প্রশ্ন + ম্যানুয়াল মেটাডেটা ফিল্টার</span>
+        </p>
+
+        <div class="filter-row">
+          <div>
+            <label for="fLanguage" data-bn="ভাষা" data-en="Language">ভাষা</label>
+            <select id="fLanguage">
+              <option value="" data-bn="— যেকোনো —" data-en="— Any —">— যেকোনো —</option>
+              <option value="bn" data-bn="বাংলা (bn)" data-en="Bangla (bn)">বাংলা (bn)</option>
+              <option value="en" data-bn="English (en)" data-en="English (en)">English (en)</option>
+              <option value="bn+en" data-bn="মিশ্র (bn+en)" data-en="Mixed (bn+en)">মিশ্র (bn+en)</option>
+            </select>
+          </div>
+          <div>
+            <label for="fType" data-bn="ডকুমেন্টের ধরন" data-en="Document type">ডকুমেন্টের ধরন</label>
+            <select id="fType">
+              <option value="" data-bn="— যেকোনো —" data-en="— Any —">— যেকোনো —</option>
+              <option value="pdf">PDF</option>
+              <option value="image" data-bn="Image" data-en="Image">Image</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div>
+            <label for="fDateFrom" data-bn="তারিখ থেকে" data-en="Date from">তারিখ থেকে</label>
+            <input type="date" id="fDateFrom">
+          </div>
+          <div>
+            <label for="fDateTo" data-bn="তারিখ পর্যন্ত" data-en="Date to">তারিখ পর্যন্ত</label>
+            <input type="date" id="fDateTo">
+          </div>
+        </div>
+        <div class="filter-row full">
+          <div>
+            <label for="fFilename" data-bn="নির্দিষ্ট ফাইলনাম (ঐচ্ছিক)" data-en="Exact filename (optional)">নির্দিষ্ট ফাইলনাম (ঐচ্ছিক)</label>
+            <input type="text" id="fFilename" data-bn-placeholder="যেমন: report.pdf" data-en-placeholder="e.g. report.pdf" placeholder="যেমন: report.pdf">
+          </div>
+        </div>
+
+        <div class="query-bar">
+          <input type="text" id="queryInput"
+            data-bn-placeholder="প্রশ্ন লেখো… (বাংলা বা English)"
+            data-en-placeholder="Ask a question… (Bangla or English)"
+            placeholder="প্রশ্ন লেখো… (বাংলা বা English)">
+          <button id="searchBtn" data-bn="খুঁজো" data-en="Search">খুঁজো</button>
+        </div>
+
+        <div class="console" id="searchConsole" style="display:none;"></div>
+
+        <div class="answer-block" id="answerBlock">
+          <div class="q" id="answerQuery"></div>
+          <div class="a" id="answerText"></div>
+        </div>
+
+        <div class="sources" id="sourcesBlock" style="display:none;">
+          <div class="sources-title" data-bn="যে অংশ থেকে উত্তর এসেছে" data-en="Sources used for this answer">যে অংশ থেকে উত্তর এসেছে</div>
+          <div id="sourcesList"></div>
+        </div>
+
+        <div class="empty-state" id="emptyState"
+          data-bn="এখনও কোনো অনুসন্ধান হয়নি। বাম পাশে একটা ডকুমেন্ট আপলোড করে শুরু করো।"
+          data-en="No search yet. Upload a document on the left to get started.">
+          এখনও কোনো অনুসন্ধান হয়নি। বাম পাশে একটা ডকুমেন্ট আপলোড করে শুরু করো।
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footnote"
+    data-bn="সম্পূর্ণ লোকাল পাইপলাইন — কোনো ডেটা বাহ্যিক API-তে যায় না · Tesseract + ChromaDB + Ollama"
+    data-en="Fully local pipeline — no data leaves this machine · Tesseract + ChromaDB + Ollama">
+    সম্পূর্ণ লোকাল পাইপলাইন — কোনো ডেটা বাহ্যিক API-তে যায় না · Tesseract + ChromaDB + Ollama
+  </div>
+
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const apiBaseInput = $('apiBase');
+  const getBase = () => apiBaseInput.value.replace(/\/+$/, '');
+
+  // ============ LANGUAGE SYSTEM ============
+  let currentLang = 'bn';
+
+  const STRINGS = {
+    statusChecking:   { bn: 'চেক করা হচ্ছে…', en: 'checking…' },
+    statusOnline:     { bn: 'ব্যাকএন্ড সংযুক্ত', en: 'Backend connected' },
+    statusOffline:    { bn: 'ব্যাকএন্ডে পৌঁছানো যাচ্ছে না', en: 'Cannot reach backend' },
+
+    logUploadStart:   { bn: (n) => `আপলোড শুরু: <b>${n}</b>`, en: (n) => `Starting upload: <b>${n}</b>` },
+    logUploadSending: { bn: 'সার্ভারে পাঠানো হচ্ছে (POST /upload)…', en: 'Sending to server (POST /upload)…' },
+    logOcrDone:       { bn: 'OCR ও এমবেডিং সম্পন্ন ✓', en: 'OCR and embedding complete ✓' },
+    logLangDetected:  { bn: (l) => `শনাক্তকৃত ভাষা: <b>${l}</b>`, en: (l) => `Detected language: <b>${l}</b>` },
+    logChunks:        { bn: (c) => `মোট চাঙ্ক তৈরি হয়েছে: <b>${c}</b>`, en: (c) => `Total chunks created: <b>${c}</b>` },
+    logDocId:         { bn: (id) => `doc_id: ${id}`, en: (id) => `doc_id: ${id}` },
+    logErr:           { bn: (m) => `ত্রুটি: ${m}`, en: (m) => `Error: ${m}` },
+    uploadDefault:    { bn: 'আপলোড ও প্রসেস করো', en: 'Upload & process' },
+    uploadProcessing: { bn: 'প্রসেস হচ্ছে…', en: 'Processing…' },
+    uploadFailDefault:{ bn: 'আপলোড ব্যর্থ হয়েছে', en: 'Upload failed' },
+
+    askFirst:         { bn: 'আগে একটা প্রশ্ন লেখো।', en: 'Type a question first.' },
+    logEmbedding:     { bn: 'প্রশ্নের এমবেডিং তৈরি হচ্ছে…', en: 'Generating query embedding…' },
+    logFilter:        { bn: (f) => `ম্যানুয়াল ফিল্টার প্রয়োগ হচ্ছে: ${f}`, en: (f) => `Applying manual filters: ${f}` },
+    logVectorSearch:  { bn: 'ভেক্টর সিমিলারিটি সার্চ চলছে (ChromaDB)…', en: 'Running vector similarity search (ChromaDB)…' },
+    logLlmDone:       { bn: 'লোকাল LLM থেকে উত্তর তৈরি হয়েছে (Ollama) ✓', en: 'Answer generated by local LLM (Ollama) ✓' },
+    logSourcesFound:  { bn: (n) => `${n} টি সোর্স চাঙ্ক পাওয়া গেছে`, en: (n) => `${n} source chunk(s) found` },
+    searchDefault:    { bn: 'খুঁজো', en: 'Search' },
+    searching:        { bn: 'খোঁজা হচ্ছে…', en: 'Searching…' },
+    searchFailDefault:{ bn: 'সার্চ ব্যর্থ হয়েছে', en: 'Search failed' },
+    searchFailedEmpty:{ bn: 'অনুসন্ধান ব্যর্থ হয়েছে — উপরের লগ দেখো।', en: 'Search failed — see the log above.' },
+    answerQueryLabel: { bn: (q) => `প্রশ্ন — ${q}`, en: (q) => `Query — ${q}` },
+
+    expand:           { bn: 'পুরোটা দেখো ↓', en: 'Show full text ↓' },
+    collapse:         { bn: 'সংক্ষিপ্ত করো ↑', en: 'Collapse ↑' },
+    similarity:       { bn: (p) => `সাদৃশ্য: ${p}%`, en: (p) => `similarity: ${p}%` },
+  };
+
+  function t(key, ...args){
+    const entry = STRINGS[key];
+    const val = entry[currentLang];
+    return typeof val === 'function' ? val(...args) : val;
+  }
+
+  function applyLanguage(lang){
+    currentLang = lang;
+    document.body.classList.toggle('lang-bn', lang === 'bn');
+    document.body.classList.toggle('lang-en', lang === 'en');
+    document.documentElement.lang = lang;
+
+    // toggle pill state
+    document.querySelectorAll('#langToggle [data-lang-opt]').forEach(el => {
+      el.classList.toggle('active', el.dataset.langOpt === lang);
+    });
+
+    // static text swap
+    document.querySelectorAll('[data-bn][data-en]').forEach(el => {
+      el.innerHTML = lang === 'bn' ? el.dataset.bn : el.dataset.en;
+    });
+
+    // placeholder swap
+    document.querySelectorAll('[data-bn-placeholder][data-en-placeholder]').forEach(el => {
+      el.placeholder = lang === 'bn' ? el.dataset.bnPlaceholder : el.dataset.enPlaceholder;
+    });
+
+    // re-render dynamic bits that depend on language
+    refreshDynamicLabels();
+  }
+
+  function refreshDynamicLabels(){
+    // status pill (only re-render generic states, not mid-fetch)
+    if(!statusBusy){
+      $('statusText').textContent = lastStatusOk === null
+        ? t('statusChecking')
+        : (lastStatusOk ? t('statusOnline') : t('statusOffline'));
+    }
+    // button defaults (only if not mid-action)
+    if(!uploadBtn.dataset.busy){ uploadBtn.textContent = t('uploadDefault'); }
+    if(!searchBtn.dataset.busy){ searchBtn.textContent = t('searchDefault'); }
+    // expand/collapse buttons on existing source cards
+    document.querySelectorAll('.source-card').forEach(card => {
+      const btn = card.querySelector('.expand-toggle');
+      if(btn) btn.textContent = card.classList.contains('expanded') ? t('collapse') : t('expand');
+    });
+    // re-render score labels
+    document.querySelectorAll('.source-card .score').forEach(el => {
+      const pct = el.dataset.pct;
+      if(pct !== undefined) el.textContent = t('similarity', pct);
+    });
+  }
+
+  $('langToggle').addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-lang-opt]');
+    if(!opt) return;
+    applyLanguage(opt.dataset.langOpt);
+  });
+
+  // ============ BACKEND STATUS ============
+  let statusBusy = false;
+  let lastStatusOk = null;
+
+  async function checkStatus(){
+    const dot = $('statusDot'), text = $('statusText');
+    statusBusy = true;
+    dot.className = 'status-dot';
+    text.textContent = t('statusChecking');
+    try{
+      const res = await fetch(getBase() + '/', { method:'GET' });
+      if(res.ok){
+        dot.classList.add('online');
+        lastStatusOk = true;
+        text.textContent = t('statusOnline');
+      } else {
+        throw new Error('bad status');
+      }
+    } catch(e){
+      dot.classList.add('offline');
+      lastStatusOk = false;
+      text.textContent = t('statusOffline');
+    } finally {
+      statusBusy = false;
+    }
+  }
+  $('recheckBtn').addEventListener('click', checkStatus);
+  checkStatus();
+
+  // ============ UPLOAD ============
+  function logUpload(msg, cls){
+    const c = $('uploadConsole');
+    if(c.dataset.cleared !== 'true'){
+      c.innerHTML = '';
+      c.dataset.cleared = 'true';
+    }
+    const div = document.createElement('div');
+    div.className = 'line ' + (cls || '');
+    const ts = new Date().toLocaleTimeString('en-GB');
+    div.innerHTML = `<span class="ts">[${ts}]</span>${msg}`;
+    c.appendChild(div);
+    c.scrollTop = c.scrollHeight;
+  }
+
+  const dropzone = $('dropzone');
+  const fileInput = $('fileInput');
+  const fileNameEl = $('fileName');
+  const uploadBtn = $('uploadBtn');
+  let selectedFile = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length){
+      fileInput.files = e.dataTransfer.files;
+      handleFileSelect();
+    }
+  });
+  fileInput.addEventListener('change', handleFileSelect);
+
+  function handleFileSelect(){
+    if(fileInput.files.length){
+      selectedFile = fileInput.files[0];
+      fileNameEl.textContent = '✓ ' + selectedFile.name;
+      uploadBtn.disabled = false;
+    }
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    if(!selectedFile) return;
+    uploadBtn.disabled = true;
+    uploadBtn.dataset.busy = 'true';
+    uploadBtn.textContent = t('uploadProcessing');
+    logUpload(t('logUploadStart', selectedFile.name), 'dim');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try{
+      logUpload(t('logUploadSending'), 'dim');
+      const res = await fetch(getBase() + '/upload', { method:'POST', body: formData });
+      const data = await res.json();
+
+      if(!res.ok){
+        throw new Error(data.detail || t('uploadFailDefault'));
+      }
+
+      logUpload(t('logOcrDone'), 'ok');
+      logUpload(t('logLangDetected', data.language_detected), 'ok');
+      logUpload(t('logChunks', data.total_chunks), 'ok');
+      logUpload(t('logDocId', data.doc_id), 'dim');
+      logUpload(data.message, 'ok');
+
+    } catch(err){
+      logUpload(t('logErr', err.message), 'err');
+    } finally {
+      uploadBtn.disabled = false;
+      delete uploadBtn.dataset.busy;
+      uploadBtn.textContent = t('uploadDefault');
+    }
+  });
+
+  // ============ SEARCH ============
+  const searchBtn = $('searchBtn');
+  const searchConsole = $('searchConsole');
+  const emptyState = $('emptyState');
+  const answerBlock = $('answerBlock');
+  const sourcesBlock = $('sourcesBlock');
+
+  function logSearch(msg, cls){
+    searchConsole.style.display = 'block';
+    const div = document.createElement('div');
+    div.className = 'line ' + (cls || '');
+    const ts = new Date().toLocaleTimeString('en-GB');
+    div.innerHTML = `<span class="ts">[${ts}]</span>${msg}`;
+    searchConsole.appendChild(div);
+    searchConsole.scrollTop = searchConsole.scrollHeight;
+  }
+
+  function buildFilters(){
+    const filters = {};
+    const lang = $('fLanguage').value;
+    const type = $('fType').value;
+    const dFrom = $('fDateFrom').value;
+    const dTo = $('fDateTo').value;
+    const fname = $('fFilename').value.trim();
+
+    if(lang) filters.language = lang;
+    if(type) filters.doc_type = type;
+    if(dFrom) filters.date_from = dFrom;
+    if(dTo) filters.date_to = dTo;
+    if(fname) filters.filename = fname;
+
+    return Object.keys(filters).length ? filters : null;
+  }
+
+  function detectBangla(text){
+    return /[\u0980-\u09FF]/.test(text);
+  }
+
+  searchBtn.addEventListener('click', runSearch);
+  $('queryInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') runSearch();
+  });
+
+  async function runSearch(){
+    const query = $('queryInput').value.trim();
+    if(!query){
+      logSearch(t('askFirst'), 'err');
+      return;
+    }
+
+    searchConsole.innerHTML = '';
+    emptyState.style.display = 'none';
+    answerBlock.classList.remove('show');
+    sourcesBlock.style.display = 'none';
+
+    searchBtn.disabled = true;
+    searchBtn.dataset.busy = 'true';
+    searchBtn.textContent = t('searching');
+
+    const filters = buildFilters();
+    logSearch(t('logEmbedding'), 'dim');
+    if(filters) logSearch(t('logFilter', JSON.stringify(filters)), 'dim');
+    logSearch(t('logVectorSearch'), 'dim');
+
+    const payload = { query, top_k: 5, filters };
+
+    try{
+      const res = await fetch(getBase() + '/search', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if(!res.ok){
+        throw new Error(data.detail || t('searchFailDefault'));
+      }
+
+      logSearch(t('logLlmDone'), 'ok');
+      logSearch(t('logSourcesFound', data.sources.length), 'ok');
+
+      $('answerQuery').textContent = t('answerQueryLabel', data.query);
+      const answerEl = $('answerText');
+      answerEl.textContent = data.answer;
+      answerEl.classList.toggle('bn-text', detectBangla(data.answer));
+      answerBlock.classList.add('show');
+
+      renderSources(data.sources);
+
+    } catch(err){
+      logSearch(t('logErr', err.message), 'err');
+      emptyState.textContent = t('searchFailedEmpty');
+      emptyState.style.display = 'block';
+    } finally {
+      searchBtn.disabled = false;
+      delete searchBtn.dataset.busy;
+      searchBtn.textContent = t('searchDefault');
+    }
+  }
+
+  function renderSources(sources){
+    const list = $('sourcesList');
+    list.innerHTML = '';
+
+    if(!sources.length){
+      sourcesBlock.style.display = 'none';
+      return;
+    }
+
+    sources.forEach((src) => {
+      const card = document.createElement('div');
+      card.className = 'source-card';
+
+      const meta = src.metadata || {};
+      const metaTags = [
+        meta.filename ? `📄 ${meta.filename}` : null,
+        meta.language ? `🌐 ${meta.language}` : null,
+        meta.doc_type ? `🗂 ${meta.doc_type}` : null,
+        meta.upload_date ? `📅 ${meta.upload_date}` : null,
+      ].filter(Boolean).map(tag => `<span>${tag}</span>`).join('');
+
+      const pct = (src.score * 100).toFixed(1);
+
+      card.innerHTML = `
+        <div class="source-head">
+          <div class="source-meta">${metaTags}</div>
+          <div class="score" data-pct="${pct}">${t('similarity', pct)}</div>
+        </div>
+        <div class="source-text">${escapeHtml(src.text)}</div>
+        <button class="expand-toggle">${t('expand')}</button>
+      `;
+
+      const toggleBtn = card.querySelector('.expand-toggle');
+      toggleBtn.addEventListener('click', () => {
+        card.classList.toggle('expanded');
+        toggleBtn.textContent = card.classList.contains('expanded') ? t('collapse') : t('expand');
+      });
+
+      list.appendChild(card);
+    });
+
+    sourcesBlock.style.display = 'block';
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // init
+  applyLanguage('bn');
+</script>
+
+</body>
+</html>
