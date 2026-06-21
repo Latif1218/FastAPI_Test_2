@@ -19,10 +19,7 @@ def build_context(chunks: list[str]) -> str:
 
 
 def generate_answer(question: str, retrieved_chunks: list[str]) -> str:
-    """
-    Calls a locally running Ollama model (e.g. llama3) with the retrieved
-    chunks as context. Fully local — no external API calls.
-    """
+    
     context = build_context(retrieved_chunks)
     prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
 

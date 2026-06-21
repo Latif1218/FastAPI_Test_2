@@ -14,14 +14,6 @@ def get_embedding_model() -> SentenceTransformer:
 
 
 def embed_texts(texts: list[str], is_query: bool = False) -> list[list[float]]:
-    """
-    Generate embeddings for a list of texts.
-
-    Note: multilingual-e5 models are trained with instruction prefixes:
-      - "query: "   for search queries
-      - "passage: " for stored documents/chunks
-    Using the correct prefix noticeably improves retrieval quality.
-    """
     model = get_embedding_model()
     prefix = "query: " if is_query else "passage: "
     prefixed_texts = [prefix + t for t in texts]

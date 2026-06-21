@@ -2,25 +2,7 @@ from app.config import settings
 
 
 def chunk_text(text: str, chunk_size: int = None, overlap: int = None) -> list[str]:
-    """
-    Splits text into overlapping word-based chunks.
-
-    Why word-based + overlap (instead of fixed character slicing)?
-    - Bangla and English have different average character-per-word density,
-      so a word-based approach keeps chunk "meaning size" more consistent
-      across both languages.
-    - Overlap (default 100 words) ensures a sentence/idea split across the
-      chunk boundary still has context in the neighboring chunk, which
-      improves retrieval recall for the RAG step.
-
-    Args:
-        text: raw extracted text (from OCR)
-        chunk_size: words per chunk
-        overlap: number of overlapping words between consecutive chunks
-
-    Returns:
-        List of text chunks (strings)
-    """
+   
     chunk_size = chunk_size or settings.CHUNK_SIZE
     overlap = overlap or settings.CHUNK_OVERLAP
 

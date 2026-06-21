@@ -18,10 +18,7 @@ def extract_text_from_image(image_path: str, lang: str = None) -> str:
 
 
 def extract_text_from_pdf(pdf_path: str, lang: str = None) -> str:
-    """
-    Convert each PDF page to an image (via poppler) then run OCR on every page.
-    This works for scanned/image-based PDFs as well as normal ones.
-    """
+  
     lang = lang or settings.OCR_LANGUAGES
     pages = convert_from_path(pdf_path, dpi=300)
 
@@ -35,10 +32,7 @@ def extract_text_from_pdf(pdf_path: str, lang: str = None) -> str:
 
 
 def extract_text(file_path: str, lang: str = None) -> str:
-    """
-    Entry point: detects file type and routes to the correct extractor.
-    Supports: .pdf, .png, .jpg, .jpeg
-    """
+   
     ext = os.path.splitext(file_path)[1].lower()
 
     print(f"[OCR] Starting local extraction for: {file_path}")
@@ -55,11 +49,7 @@ def extract_text(file_path: str, lang: str = None) -> str:
 
 
 def detect_language_simple(text: str) -> str:
-    """
-    Very lightweight heuristic language detector based on Unicode ranges.
-    Bangla block: U+0980 to U+09FF
-    Returns: 'bn', 'en', or 'bn+en' (mixed)
-    """
+   
     bangla_chars = sum(1 for ch in text if "\u0980" <= ch <= "\u09FF")
     english_chars = sum(1 for ch in text if ch.isascii() and ch.isalpha())
 

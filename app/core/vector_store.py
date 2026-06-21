@@ -6,10 +6,7 @@ _collection = None
 
 
 def get_collection():
-    """
-    Lazy-loaded singleton ChromaDB persistent client + collection.
-    Using PersistentClient so data survives server restarts (local-only, no external calls).
-    """
+ 
     global _client, _collection
     if _collection is None:
         _client = chromadb.PersistentClient(path=settings.CHROMA_DIR)
@@ -24,7 +21,7 @@ def get_collection():
 
 def add_chunks(chunk_ids: list[str], chunk_texts: list[str],
                embeddings: list[list[float]], metadatas: list[dict]):
-    """Insert chunks + their embeddings + metadata into ChromaDB."""
+    
     collection = get_collection()
     collection.add(
         ids=chunk_ids,
@@ -36,11 +33,7 @@ def add_chunks(chunk_ids: list[str], chunk_texts: list[str],
 
 
 def build_where_clause(filters) -> dict | None:
-    """
-    Converts the user's SearchFilters (Pydantic model) into a ChromaDB-compatible
-    'where' clause. Only non-null fields are included, so users can apply
-    as many or as few manual filters as they want alongside the semantic query.
-    """
+    
     if filters is None:
         return None
 
@@ -65,12 +58,7 @@ def build_where_clause(filters) -> dict | None:
 
 
 def query_chunks(query_embedding: list[float], top_k: int = 5, filters=None):
-    """
-    Hybrid search: ChromaDB applies the metadata 'where' clause FIRST to
-    narrow down candidate chunks, THEN runs vector similarity (cosine)
-    search only within that filtered subset. This is what satisfies the
-    'manual filtering alongside semantic query' requirement.
-    """
+    
     collection = get_collection()
     where_clause = build_where_clause(filters)
 
